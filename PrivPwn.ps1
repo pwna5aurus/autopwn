@@ -2,7 +2,7 @@
 Ben Floyd (def.jammin@gmail.com) Available under the BSD-3 Clause
 
 
-This is a bot, which uses a number of tools, including PowerSploit's Recon module, PSExec, and Mimikatz that searches for machines where the current Domain User account has 
+This is a bot, which uses a number of tools, including PowerSploit's Recon module, PAExec, and Mimikatz that searches for machines where the current Domain User account has 
 local admin rights and grabs credentials, and automatically elevates itself to Domain Admin, if a path exists between current credentials and a DA account.
 It is able to check all Domain User accounts recovered for workstations/servers where they have local admin rights, to obtain further credentials and pivot/escalate.
 As Powershell is not always remotely enabled, this script can enable it remotely with PSExec (from Sysinternals), which is decoded from a base64 string and invoked reflectively 
@@ -33,7 +33,7 @@ PowerSploit is provided under the 3-clause BSD license below: Copyright (c) 2012
 
 Mimikatz is a program originally written by Benjamin Delpy https://github.com/gentilkiwi/mimikatz
 
-PSExec is part of the Sysinternals software suite. Sysinternals is a wholly owned subsidiary of the Microsoft Corp. 
+PAExec is made by a bunch of cool folks @ https://www.poweradmin.com/paexec/ 
 
 #>
 
