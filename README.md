@@ -6,15 +6,16 @@ Available under the BSD-3 Clause
 
 Summary:
 
-   This is a bot, which uses a number of tools, including PowerSploit's Recon module, PSExec, and Mimikatz
-   that searches for machines where the current Domain User account has local admin rights and grabs credentials, 
+   This is a bot, which uses a number of tools, including PowerSploit's Recon module, PAExec, and Mimikatz,
+   searches for machines where the current Domain User account has local admin rights and grabs credentials, 
    and automatically elevates itself to Domain Admin, if a path exists between current credentials and a DA account.
+   If not, it switches to the next found user and repeats.
 
    It is able to check all Domain User accounts recovered for workstations/servers where they have local admin rights,
    to obtain further credentials and pivot/escalate.  
 
-   As Powershell is not always remotely enabled, this script can enable it remotely with PSExec (from
-   Sysinternals), which is decoded from a base64 string and invoked reflectively in memory.
+   As Powershell is not always remotely enabled, this script can enable it remotely with PAExec,
+   which is decoded from a base64 string and invoked reflectively in memory.
 
    When connected to a remote machine as local admin, it pulls Invoke-Mimikatz from the web (or a share,
    if necessary) and runs it in memory on the remote machine.
@@ -23,7 +24,7 @@ Summary:
    as of time of writing), and leave no trace.  Logs are optional.
 
    It is intended to locate cached credentials within a domain and find Elevation of Privilege (EoP)
-   paths.  It is meant to audit highly privileged (domain admin) accounts quickly locate possible paths.
+   paths.  It is meant to audit highly privileged (domain admin) accounts and quickly locate possible paths.
    
    I wrote this software for the purposes of pentesting.  There are many great components/modules/tools out there, written by talented 
    people.  But this is for the (extremely) busy/lazy.....after you have obtained, perhaps, helpdesk or service account credentials.  Often 
@@ -49,5 +50,4 @@ All rights reserved.
 Mimikatz is a program originally written by Benjamin Delpy
 https://github.com/gentilkiwi/mimikatz
 
-PSExec is part of the Sysinternals software suite.
-Sysinternals is a wholly owned subsidiary of the Microsoft Corp.
+PAExec is made by the awesome folks at https://www.poweradmin.com/paexec/
