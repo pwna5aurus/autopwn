@@ -46,7 +46,7 @@ param (
 $invocation = (Get-Variable MyInvocation).Value
 $directorypath = Split-Path $invocation.MyCommand.Path
 $recon = $directorypath + '\Recon\Recon.psd1'
-$blocklist = @("DPSE","LPSE","VDIG")
+$blocklist = @("computer_type1","computer_type2","computer_type3")
 
 $TableResults = New-Object System.Data.DataTable 
 #$TblCredStore.Columns.Add("PwType") | Out-Null
@@ -284,7 +284,7 @@ function checklog {
     if ($return) {
         $LA = Get-Content $file 
         foreach ($Server in $LA) {
-                if ((!(($Server).Contains("VDIG"))) -and (!(($Server).Contains("LPSE"))) -and !(($Server).Contains("DPSE"))) {            
+                if ((!(($Server).Contains(@blocklist)))) {            
                     $global:i++
                     $i = $global:i
                     $Global:ServerList.Rows.Add($i,$Server) | Out-Null
