@@ -153,7 +153,7 @@ write-host "Machines with LocalAdmin`r`n`n"
         if (checklog) {
                 $LA = Get-Content $file
                 ForEach ($Computer in $LA) {
-                    if (!($($Computer).Contains("LPSE")) -and !($($Computer).Contains("DPSE")) ) {
+                    if (!($($Computer).Contains("computer_type1")) -and !($($Computer).Contains("computer_type2")) ) {
                         write-host "$Computer`r`n" -foregroundcolor red
                     }
                 }
@@ -173,7 +173,7 @@ if ($chosen -eq 3) {
         $j = 0
         for ($i=0; $i -lt $LA.Length; $i++) {
             #write-host $LA[$i]
-            if (!($($LA[$i]).Contains("LPSE")) -and !($($LA[$i]).Contains("DPSE")) ) {
+            if (!($($LA[$i]).Contains("computer_type1")) -and !($($LA[$i]).Contains("computer_type2")) ) {
                     $c += $LA[$i]
                     write-host ($j+1) ": " $c[$j]
                     $j++
